@@ -326,6 +326,19 @@
             border-radius: var(--radius);
         }
 
+        /* --- НОВЫЙ КЛАСС: Для пустой недели --- */
+        .empty-week-msg {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40vh; /* Половина высоты экрана для выравнивания по центру */
+            color: var(--text-muted);
+            font-size: 24px;
+            font-weight: 700; /* Более жирный шрифт */
+            text-align: center;
+            padding: 20px;
+        }
+
         .fab {
             position: fixed;
             bottom: 30px;
@@ -381,6 +394,13 @@
             background: var(--bg-color);
             color: var(--text-main);
             font-size: 15px;
+            transition: border-color 0.3s, box-shadow 0.3s; /* Плавное изменение границы */
+        }
+
+        /* --- НОВЫЙ КЛАСС: Ошибка валидации --- */
+        .error-border {
+            border-color: var(--accent-red) !important;
+            box-shadow: 0 0 0 2px rgba(255, 82, 82, 0.3) !important;
         }
 
         .number-input-wrapper {
@@ -636,7 +656,8 @@
     <div class="modal-overlay" id="addModal" style="display: none;">
         <div class="modal">
             <h2 id="modalTitle">Редактировать предмет</h2>
-            <form id="addForm">
+            <!-- ИСПРАВЛЕНИЕ: Добавлен novalidate, чтобы отключить стандартные всплывающие окна браузера -->
+            <form id="addForm" novalidate>
                 <div class="form-group">
                     <label>Название предмета *</label>
                     <input type="text" id="f_name" required="">
@@ -694,7 +715,7 @@
                         </select>
                     </div>
                     <div class="form-group" style="flex: 1;">
-                        <label>Начинать с недели</label>
+                        <label>Начинать с недели *</label>
                         <div class="number-input-wrapper">
                             <input type="number" id="f_startWeek" min="1" max="18" value="1" required="">
                             <div class="custom-spinners">
@@ -761,19 +782,14 @@
         let editingLessonId = null; 
         let pollTimer = null;
         
-        // --- 1. ШАГ РАЗРАБОТКИ: Новые переменные для надежной блокировки синхронизации ---
-        // Эти переменные хранятся прямо в оперативной памяти устройства
         let isSyncPaused = false; 
         let syncPauseTimer = null;
-        let isFetching = false; // Поможет не отправлять несколько запросов одновременно
+        let isFetching = false; 
 
-        // Функция, которая "включает" блокировку на 30 секунд после любых изменений расписания
         function pauseSync() {
             isSyncPaused = true;
             clearTimeout(syncPauseTimer);
             syncPauseTimer = setTimeout(() => { isSyncPaused = false; }, 30000);
-            
-            // На всякий случай также дублируем это в хранилище браузера (для защиты от перезагрузки страницы)
             try { localStorage.setItem('mySchedule_lastEditTime', Date.now().toString()); } catch(e){}
         }
 
@@ -791,6 +807,13 @@
                 renderSchedule();
             });
 
+            // ИСПРАВЛЕНИЕ 2: Слушатели для полей формы. Как только вводим символ — убираем красную рамку
+            document.querySelectorAll('#addForm input, #addForm select, #addForm textarea').forEach(el => {
+                el.addEventListener('input', function() {
+                    this.classList.remove('error-border');
+                });
+            });
+
             calculateCurrentWeek();
             loadDataFromAPI();
             initSwipe();
@@ -800,7 +823,7 @@
                     loadDataFromAPI(); 
                     startSmartPolling();
                 } else {
-                    clearTimeout(pollTimer); // Ставим опрос на паузу, когда вкладка скрыта
+                    clearTimeout(pollTimer); 
                 }
             });
             startSmartPolling();
@@ -816,9 +839,6 @@
 
         function startSmartPolling() {
             clearTimeout(pollTimer);
-            // --- 2. ШАГ РАЗРАБОТКИ: Последовательные запросы ---
-            // Теперь мы используем async/await, чтобы следующий запрос начинался 
-            // СТРОГО через 5 секунд после того, как завершился предыдущий.
             pollTimer = setTimeout(async () => {
                 if (document.visibilityState === 'visible') {
                     await loadDataFromAPI(true);
@@ -828,14 +848,7 @@
         }
         
         async function loadDataFromAPI(silent = false) {
-            // --- 3. ШАГ РАЗРАБОТКИ: Проверка блокировки №1 ---
-            // Если мы только что что-то изменили - моментально блокируем входящие данные
-            if (isSyncPaused) return; 
-            try {
-                const lastEditTime = parseInt(localStorage.getItem('mySchedule_lastEditTime') || '0', 10);
-                if (Date.now() - lastEditTime < 30000) return;
-            } catch(e) {}
-
+            // ИСПРАВЛЕНИЕ 1: СНАЧАЛА читаем из памяти устройства (чтобы не было пустого экрана при обновлении)
             if (!silent) {
                 try {
                     const localData = localStorage.getItem('mySchedule_v4');
@@ -853,7 +866,13 @@
 
             if(!API_URL || API_URL === '') return;
 
-            // Блокируем одновременный запуск двух одинаковых функций загрузки
+            // А ТЕПЕРЬ проверяем блокировку перед обращением к серверу!
+            if (isSyncPaused) return; 
+            try {
+                const lastEditTime = parseInt(localStorage.getItem('mySchedule_lastEditTime') || '0', 10);
+                if (Date.now() - lastEditTime < 30000) return;
+            } catch(e) {}
+
             if (isFetching) return;
             isFetching = true;
 
@@ -863,9 +882,6 @@
                 const data = await response.json();
                 
                 if (data && Array.isArray(data)) {
-                    // --- 4. ШАГ РАЗРАБОТКИ: Проверка блокировки №2 ---
-                    // Пока мы ждали ответ от сервера (это могло занять 2-3 секунды), 
-                    // ты мог удалить или добавить предмет. Проверяем блокировку ЕЩЕ РАЗ!
                     if (isSyncPaused) return; 
                     try {
                         const lastEditTime = parseInt(localStorage.getItem('mySchedule_lastEditTime') || '0', 10);
@@ -885,26 +901,21 @@
             } catch (error) {
                 console.error("Ошибка синхронизации:", error);
             } finally {
-                // Всегда разрешаем следующий запрос после завершения
                 isFetching = false; 
             }
         }
 
         async function saveDataToAPI(actionInfo) {
-            // --- 5. ШАГ РАЗРАБОТКИ: Активация замка ---
-            // Запускаем 30-секундную блокировку синхронизации
             pauseSync(); 
 
             try { 
                 localStorage.setItem('mySchedule_v4', JSON.stringify(lessons)); 
             } catch(e){}
             
-            // Моментально обновляем интерфейс локально
             renderSchedule();
 
             if(!API_URL || API_URL === '') return;
 
-            // Затем спокойно отправляем данные на сервер
             try {
                 await fetch(API_URL, {
                     method: 'POST',
@@ -1141,7 +1152,8 @@
                 html += dayHTML;
             }
             if(html === '') {
-                html = '<div style="color: var(--text-muted); text-align: center; margin-top: 40px;">На эту неделю пар нет 🎉</div>';
+                // ИСПРАВЛЕНИЕ 3: Выводим надпись по центру с помощью нового класса
+                html = '<div class="empty-week-msg">На эту неделю пар нет</div>';
             }
             return html;
         }
@@ -1291,6 +1303,8 @@
         function openModal() { 
             editingLessonId = null;
             document.getElementById('addForm').reset();
+            // Сбрасываем возможные рамки ошибок
+            document.querySelectorAll('.error-border').forEach(el => el.classList.remove('error-border'));
             document.getElementById('modalTitle').innerText = 'Добавить предмет';
             document.getElementById('saveBtn').innerText = 'Добавить';
             document.getElementById('addModal').style.display = 'flex'; 
@@ -1299,6 +1313,7 @@
         function closeModal() { 
             document.getElementById('addModal').style.display = 'none'; 
             document.getElementById('addForm').reset(); 
+            document.querySelectorAll('.error-border').forEach(el => el.classList.remove('error-border'));
             editingLessonId = null;
         }
 
@@ -1315,6 +1330,7 @@
             if (!lesson) return;
 
             editingLessonId = id;
+            document.querySelectorAll('.error-border').forEach(el => el.classList.remove('error-border'));
             
             document.getElementById('f_name').value = lesson.name;
             document.getElementById('f_teacher').value = lesson.teacher;
@@ -1334,16 +1350,38 @@
         document.getElementById('addForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
+            // ИСПРАВЛЕНИЕ 2: Своя логика проверки полей
+            const nameInput = document.getElementById('f_name');
+            const startWeekInput = document.getElementById('f_startWeek');
+            let hasError = false;
+
+            // Проверяем название предмета
+            if (!nameInput.value.trim()) {
+                nameInput.classList.add('error-border');
+                if (!hasError) nameInput.focus();
+                hasError = true;
+            }
+
+            // Проверяем неделю (не должна быть пустой и должна быть больше 0)
+            if (!startWeekInput.value.trim() || parseInt(startWeekInput.value) < 1) {
+                startWeekInput.classList.add('error-border');
+                if (!hasError) startWeekInput.focus();
+                hasError = true;
+            }
+
+            // Если есть ошибка - прекращаем сохранение и ждем исправления
+            if (hasError) return;
+
             const lessonData = {
-                name: document.getElementById('f_name').value,
-                teacher: document.getElementById('f_teacher').value,
+                name: nameInput.value.trim(),
+                teacher: document.getElementById('f_teacher').value.trim(),
                 type: document.getElementById('f_type').value,
                 day: parseInt(document.getElementById('f_day').value),
                 lessonNum: parseInt(document.getElementById('f_lessonNum').value),
                 periodicity: parseInt(document.getElementById('f_periodicity').value),
-                startWeek: parseInt(document.getElementById('f_startWeek').value),
-                room: document.getElementById('f_room').value,
-                comment: document.getElementById('f_comment').value
+                startWeek: parseInt(startWeekInput.value),
+                room: document.getElementById('f_room').value.trim(),
+                comment: document.getElementById('f_comment').value.trim()
             };
 
             let actionType = 'add';

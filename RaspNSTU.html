@@ -326,7 +326,6 @@
             border-radius: var(--radius);
         }
 
-        /* Кнопки плавающие (ПРАВАЯ И ЛЕВАЯ) */
         .fab {
             position: fixed;
             bottom: 30px;
@@ -344,11 +343,10 @@
             z-index: 100;
         }
         .fab:hover { transform: scale(1.05); }
-        
+
         .fab-right { right: 30px; }
         .fab-left { left: 30px; background-color: var(--card-bg); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
 
-        /* Модалка - базовые классы */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -374,7 +372,7 @@
 
         .form-group { margin-bottom: 16px; }
         .form-group label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--text-muted); }
-        
+
         .form-group input, .form-group select, .form-group textarea {
             width: 100%;
             padding: 10px;
@@ -384,14 +382,14 @@
             color: var(--text-main);
             font-size: 15px;
         }
-        
+
         .number-input-wrapper {
             position: relative;
             width: 100%;
         }
         .number-input-wrapper input[type="number"] {
             -moz-appearance: textfield; 
-            appearance: textfield;
+            appearance: textfield; /* Убрано предупреждение */
             padding-right: 36px; 
         }
         .number-input-wrapper input[type="number"]::-webkit-outer-spin-button,
@@ -401,19 +399,20 @@
             margin: 0;
         }
         
-        /* ИЗМЕНЕНО: Более компактные стрелочки с тёмным фоном */
+        /* ИСПРАВЛЕНО: Тёмный фон и белые стрелочки, как на картинке */
         .custom-spinners {
             position: absolute;
-            right: 6px;
+            right: 4px;
             top: 50%;
             transform: translateY(-50%);
             width: 20px;
-            height: 24px;
-            background-color: transparent; 
+            height: 26px;
+            background-color: var(--card-bg); 
             border-radius: 4px;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            border: 1px solid var(--border-color);
         }
         .custom-spinner {
             flex: 1;
@@ -422,8 +421,12 @@
             justify-content: center;
             cursor: pointer;
             color: #ffffff; /* Белые стрелки */
-            background-color: var(--bg-color); /* Фон под цвет интерфейса */
+            background-color: transparent;
             transition: background-color 0.2s;
+        }
+        .custom-spinner svg {
+            width: 12px;
+            height: 12px;
         }
         .custom-spinner:hover { background-color: var(--border-color); }
         .custom-spinner:first-child { border-bottom: 1px solid var(--border-color); }
@@ -450,24 +453,6 @@
         .btn-save { background: var(--accent-green); color: #000; }
         .btn-full { width: 100%; justify-content: center; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 
-        .toast {
-            position: fixed;
-            bottom: 100px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--accent-green);
-            color: #000;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 14px;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-            z-index: 1000;
-        }
-        .toast.show { opacity: 1; }
-
         /* --- ИСПРАВЛЕНИЯ ТОЛЬКО ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ --- */
         @media (max-width: 768px) {
             body {
@@ -478,7 +463,9 @@
                 padding: 16px 0 100px 0; 
                 overflow-x: hidden;
                 touch-action: pan-y; 
+                width: 100%;
             }
+            /* ИСПРАВЛЕНО: Правильное позиционирование для идеального свайпа */
             #swipeTrack {
                 display: flex;
                 align-items: flex-start;
@@ -498,12 +485,12 @@
                 width: 100%;
                 pointer-events: none;
             }
-            /* ИЗМЕНЕНО: Позиционирование соседних экранов для свайпа */
+            /* Призраки строго по бокам */
             .ghost-prev { left: -100%; }
             .ghost-next { left: 100%; }
 
             .header-top { font-size: 18px; }
-            
+
             .toggle-wrapper {
                 flex-direction: row; 
                 flex-wrap: nowrap; 
@@ -511,17 +498,52 @@
                 font-size: 13px; 
                 gap: 8px;
             }
-            
+
             .toggle-text-desktop { display: none; }
             .toggle-text-mobile { display: inline; }
 
             .lesson-top { align-items: flex-start; }
             .lesson-top-right { flex-wrap: wrap; }
-            
+
             .modal { padding: 20px 16px; }
             .form-row { flex-direction: column; gap: 0; }
             .form-group { margin-bottom: 12px; }
         }
+
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent-green);
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        .toast.show { opacity: 1; }
+
+        .sync-indicator {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: var(--accent-green);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .sync-indicator.show { opacity: 1; }
     </style>
 </head>
 <body>
@@ -541,7 +563,7 @@
                 </div>
                 Расписание
             </div>
-            
+
             <div class="toggle-wrapper">
                 <span class="toggle-text-desktop">Скрывать дни без пар</span>
                 <span class="toggle-text-mobile">Только с парами</span>
@@ -560,10 +582,9 @@
         </div>
     </div>
 
-    <!-- Уведомление об успешном копировании -->
+    <div id="syncStatus" class="sync-indicator">Синхронизация...</div>
     <div id="toast" class="toast">Ссылка скопирована!</div>
 
-    <!-- Левая кнопка Share -->
     <div class="fab fab-left" onclick="openShareModal()" title="Поделиться">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="18" cy="5" r="3"></circle>
@@ -574,7 +595,6 @@
         </svg>
     </div>
 
-    <!-- Правая кнопка Add -->
     <div class="fab fab-right" onclick="openModal()" title="Добавить">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -582,7 +602,6 @@
         </svg>
     </div>
 
-    <!-- Модальное окно "Поделиться" -->
     <div class="modal-overlay" id="shareModal" style="display: none;">
         <div class="modal" style="max-width: 320px;">
             <h2 style="margin-top: 0;">Поделиться</h2>
@@ -608,7 +627,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно "Добавить/Изменить" -->
     <div class="modal-overlay" id="addModal" style="display: none;">
         <div class="modal">
             <h2 id="modalTitle">Редактировать предмет</h2>
@@ -702,11 +720,11 @@
 
     <script>
         const API_URL = 'https://script.google.com/macros/s/AKfycbzmorLN0xpB42wO4Dl_CmKGi65e2pR0y3cwabGpFqx7C0EN6Nbz_zHz74_Flt3Hjfp7UQ/exec';
-        
+
         const TOTAL_WEEKS = 18;
         const SEMESTER_START = new Date(2026, 7, 31); 
         const DAYS_NAMES = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
-        
+
         const LESSON_TIMES = {
             1: { start: "08:30", end: "10:00" },
             2: { start: "10:15", end: "11:45" },
@@ -754,7 +772,7 @@
             calculateCurrentWeek();
             loadDataFromAPI();
             initSwipe();
-            
+
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible') {
                     loadDataFromAPI(); 
@@ -778,33 +796,34 @@
             clearTimeout(pollTimer);
             pollTimer = setTimeout(() => {
                 if (document.visibilityState === 'visible') {
-                    loadDataFromAPI();
+                    loadDataFromAPI(true);
                     startSmartPolling();
                 }
             }, 5000); 
         }
         
-        async function loadDataFromAPI() {
-            try {
-                const localData = localStorage.getItem('mySchedule_v4');
-                if (localData) {
-                    lessons = JSON.parse(localData);
-                    renderWeekNav();
-                    renderSchedule();
-                }
-            } catch(e) {}
+        async function loadDataFromAPI(silent = false) {
+            if (!silent) {
+                try {
+                    const localData = localStorage.getItem('mySchedule_v4');
+                    if (localData) {
+                        lessons = JSON.parse(localData);
+                        renderWeekNav();
+                        renderSchedule();
+                    }
+                } catch(e) {}
+            }
 
             if(!API_URL || API_URL === '') return;
 
             try {
-                // ИЗМЕНЕНО: Добавлена очистка кэша, чтобы данные всегда обновлялись
                 const fetchUrl = API_URL + (API_URL.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
                 const response = await fetch(fetchUrl, { cache: 'no-store' });
                 const data = await response.json();
                 if (data && Array.isArray(data)) {
                     const newDataString = JSON.stringify(data);
                     const oldDataString = JSON.stringify(lessons);
-                    
+
                     if (newDataString !== oldDataString) {
                         lessons = data;
                         try { localStorage.setItem('mySchedule_v4', newDataString); } catch(e){}
@@ -839,31 +858,38 @@
             }
         }
 
+        function showSyncStatus(show) {
+            const el = document.getElementById('syncStatus');
+            if(show) el.classList.add('show');
+            else el.classList.remove('show');
+        }
+
         function initSwipe() {
             if (window.innerWidth > 768) return; 
 
             const swipeWindow = document.getElementById('swipeWindow');
             const track = document.getElementById('swipeTrack');
             const container = document.getElementById('scheduleContainer');
-            
+
             let startX = 0, startY = 0, currentX = 0;
             let isDragging = false;
             let isAnimating = false; 
             let swipeDirectionLocked = null;
+            let ghostPane = null; 
+            let targetWeek = selectedWeek;
 
             swipeWindow.addEventListener('touchstart', function(e) {
                 if (isAnimating) return;
-                
+
                 startX = e.touches[0].clientX;
                 startY = e.touches[0].clientY;
                 currentX = startX;
                 isDragging = true;
                 swipeDirectionLocked = null;
-                
+
                 track.style.transition = 'none';
                 document.documentElement.style.setProperty('--swipe-transition', 'none');
 
-                // ИЗМЕНЕНО: Удаляем старые призрачные блоки при начале касания
                 document.querySelectorAll('.ghost-pane').forEach(el => el.remove());
 
             }, {passive: true});
@@ -880,7 +906,6 @@
                     if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
                         swipeDirectionLocked = 'horizontal';
                         
-                        // ИЗМЕНЕНО: Добавляем соседние экраны только когда жест точно горизонтальный
                         if (selectedWeek > 1) {
                             const prevPane = document.createElement('div');
                             prevPane.className = 'schedule-grid ghost-pane ghost-prev';
@@ -909,7 +934,7 @@
                         dragX = dragX * 0.25; 
                     }
 
-                    // ИЗМЕНЕНО: Просто двигаем весь трек влево-вправо. Ghost блоки сами покажутся из-за краев
+                    // Просто сдвигаем трек, призраки жестко прикреплены по бокам
                     track.style.transform = `translateX(${dragX}px)`;
                     document.documentElement.style.setProperty('--line-offset', `${-dragX * 0.2}px`);
                 }

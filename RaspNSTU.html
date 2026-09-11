@@ -389,7 +389,7 @@
         }
         .number-input-wrapper input[type="number"] {
             -moz-appearance: textfield; 
-            appearance: textfield; /* Убрано предупреждение */
+            appearance: textfield;
             padding-right: 36px; 
         }
         .number-input-wrapper input[type="number"]::-webkit-outer-spin-button,
@@ -399,7 +399,6 @@
             margin: 0;
         }
         
-        /* ИСПРАВЛЕНО: Тёмный фон и белые стрелочки, как на картинке */
         .custom-spinners {
             position: absolute;
             right: 4px;
@@ -420,7 +419,7 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            color: #ffffff; /* Белые стрелки */
+            color: #ffffff;
             background-color: transparent;
             transition: background-color 0.2s;
         }
@@ -453,7 +452,6 @@
         .btn-save { background: var(--accent-green); color: #000; }
         .btn-full { width: 100%; justify-content: center; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 
-        /* --- ИСПРАВЛЕНИЯ ТОЛЬКО ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ --- */
         @media (max-width: 768px) {
             body {
                 overscroll-behavior-x: none;
@@ -465,7 +463,6 @@
                 touch-action: pan-y; 
                 width: 100%;
             }
-            /* ИСПРАВЛЕНО: Правильное позиционирование для идеального свайпа */
             #swipeTrack {
                 display: flex;
                 align-items: flex-start;
@@ -485,7 +482,6 @@
                 width: 100%;
                 pointer-events: none;
             }
-            /* Призраки строго по бокам */
             .ghost-prev { left: -100%; }
             .ghost-next { left: 100%; }
 
@@ -509,7 +505,6 @@
             .form-row { flex-direction: column; gap: 0; }
             .form-group { margin-bottom: 12px; }
 
-            /* ИСПРАВЛЕНО: Делаем стрелочки на Android/iOS поменьше и аккуратнее */
             .custom-spinners {
                 width: 16px;
                 height: 20px;
@@ -765,6 +760,22 @@
         let selectedWeek = 1;
         let editingLessonId = null; 
         let pollTimer = null;
+        
+        // --- 1. ШАГ РАЗРАБОТКИ: Новые переменные для надежной блокировки синхронизации ---
+        // Эти переменные хранятся прямо в оперативной памяти устройства
+        let isSyncPaused = false; 
+        let syncPauseTimer = null;
+        let isFetching = false; // Поможет не отправлять несколько запросов одновременно
+
+        // Функция, которая "включает" блокировку на 30 секунд после любых изменений расписания
+        function pauseSync() {
+            isSyncPaused = true;
+            clearTimeout(syncPauseTimer);
+            syncPauseTimer = setTimeout(() => { isSyncPaused = false; }, 30000);
+            
+            // На всякий случай также дублируем это в хранилище браузера (для защиты от перезагрузки страницы)
+            try { localStorage.setItem('mySchedule_lastEditTime', Date.now().toString()); } catch(e){}
+        }
 
         function init() {
             const toggleEl = document.getElementById('toggleEmptyDays');
@@ -789,7 +800,7 @@
                     loadDataFromAPI(); 
                     startSmartPolling();
                 } else {
-                    clearTimeout(pollTimer);
+                    clearTimeout(pollTimer); // Ставим опрос на паузу, когда вкладка скрыта
                 }
             });
             startSmartPolling();
@@ -805,15 +816,26 @@
 
         function startSmartPolling() {
             clearTimeout(pollTimer);
-            pollTimer = setTimeout(() => {
+            // --- 2. ШАГ РАЗРАБОТКИ: Последовательные запросы ---
+            // Теперь мы используем async/await, чтобы следующий запрос начинался 
+            // СТРОГО через 5 секунд после того, как завершился предыдущий.
+            pollTimer = setTimeout(async () => {
                 if (document.visibilityState === 'visible') {
-                    loadDataFromAPI(true);
-                    startSmartPolling();
+                    await loadDataFromAPI(true);
                 }
+                startSmartPolling();
             }, 5000); 
         }
         
         async function loadDataFromAPI(silent = false) {
+            // --- 3. ШАГ РАЗРАБОТКИ: Проверка блокировки №1 ---
+            // Если мы только что что-то изменили - моментально блокируем входящие данные
+            if (isSyncPaused) return; 
+            try {
+                const lastEditTime = parseInt(localStorage.getItem('mySchedule_lastEditTime') || '0', 10);
+                if (Date.now() - lastEditTime < 30000) return;
+            } catch(e) {}
+
             if (!silent) {
                 try {
                     const localData = localStorage.getItem('mySchedule_v4');
@@ -822,7 +844,6 @@
                         renderWeekNav();
                         renderSchedule();
                     } else {
-                        // Если нет локальных данных (первый вход), загружаем дефолтное
                         lessons = JSON.parse(JSON.stringify(defaultLessons));
                         renderWeekNav();
                         renderSchedule();
@@ -832,18 +853,24 @@
 
             if(!API_URL || API_URL === '') return;
 
+            // Блокируем одновременный запуск двух одинаковых функций загрузки
+            if (isFetching) return;
+            isFetching = true;
+
             try {
                 const fetchUrl = API_URL + (API_URL.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
                 const response = await fetch(fetchUrl, { cache: 'no-store' });
                 const data = await response.json();
+                
                 if (data && Array.isArray(data)) {
-                    // ИСПРАВЛЕНИЕ: Блокировка отката данных (cooldown lock)
-                    // Если мы внесли локальное изменение менее 30 секунд назад, 
-                    // игнорируем ответ сервера, так как он может быть устаревшим
-                    const lastEditTime = parseInt(localStorage.getItem('mySchedule_lastEditTime') || '0', 10);
-                    if (Date.now() - lastEditTime < 30000) {
-                        return; // Ждем пока скрипт Google точно обновится
-                    }
+                    // --- 4. ШАГ РАЗРАБОТКИ: Проверка блокировки №2 ---
+                    // Пока мы ждали ответ от сервера (это могло занять 2-3 секунды), 
+                    // ты мог удалить или добавить предмет. Проверяем блокировку ЕЩЕ РАЗ!
+                    if (isSyncPaused) return; 
+                    try {
+                        const lastEditTime = parseInt(localStorage.getItem('mySchedule_lastEditTime') || '0', 10);
+                        if (Date.now() - lastEditTime < 30000) return;
+                    } catch(e) {}
 
                     const newDataString = JSON.stringify(data);
                     const oldDataString = JSON.stringify(lessons);
@@ -857,19 +884,27 @@
                 }
             } catch (error) {
                 console.error("Ошибка синхронизации:", error);
+            } finally {
+                // Всегда разрешаем следующий запрос после завершения
+                isFetching = false; 
             }
         }
 
         async function saveDataToAPI(actionInfo) {
+            // --- 5. ШАГ РАЗРАБОТКИ: Активация замка ---
+            // Запускаем 30-секундную блокировку синхронизации
+            pauseSync(); 
+
             try { 
                 localStorage.setItem('mySchedule_v4', JSON.stringify(lessons)); 
-                // Сохраняем метку времени последнего изменения
-                localStorage.setItem('mySchedule_lastEditTime', Date.now().toString());
             } catch(e){}
+            
+            // Моментально обновляем интерфейс локально
             renderSchedule();
 
             if(!API_URL || API_URL === '') return;
 
+            // Затем спокойно отправляем данные на сервер
             try {
                 await fetch(API_URL, {
                     method: 'POST',
@@ -962,7 +997,6 @@
                         dragX = dragX * 0.25; 
                     }
 
-                    // Просто сдвигаем трек, призраки жестко прикреплены по бокам
                     track.style.transform = `translateX(${dragX}px)`;
                     document.documentElement.style.setProperty('--line-offset', `${-dragX * 0.2}px`);
                 }

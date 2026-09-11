@@ -247,9 +247,9 @@
             border: 1.5px solid #888;
             color: #ffffff; 
             border-radius: 4px;
-            width: 20px;  
-            height: 20px; 
-            font-size: 12px; 
+            width: 18px;  
+            height: 18px; 
+            font-size: 11px; 
             font-weight: 800;
         }
 
@@ -385,6 +385,45 @@
             font-size: 15px;
         }
         
+        .number-input-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .number-input-wrapper input[type="number"] {
+            -moz-appearance: textfield; 
+            padding-right: 36px; 
+        }
+        .number-input-wrapper input[type="number"]::-webkit-outer-spin-button,
+        .number-input-wrapper input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none; 
+            margin: 0;
+        }
+        .custom-spinners {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 28px;
+            background-color: #e4e6eb; 
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .custom-spinner {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #333;
+            background-color: #e4e6eb;
+            transition: background-color 0.2s;
+        }
+        .custom-spinner:hover { background-color: #cccccc; }
+        .custom-spinner:first-child { border-bottom: 1px solid #c0c0c0; }
+
         .form-row {
             display: flex;
             gap: 12px;
@@ -417,17 +456,26 @@
                 padding: 16px 0 100px 0; 
                 overflow-x: hidden;
                 touch-action: pan-y; 
+                width: 100%;
             }
             #swipeTrack {
-                display: flex;
-                align-items: flex-start;
+                position: relative;
+                width: 100%;
                 will-change: transform;
             }
             .schedule-grid {
-                flex: 0 0 100%;
                 width: 100%;
                 padding: 0 16px; 
             }
+            
+            .ghost-pane {
+                position: absolute;
+                top: 0;
+                width: 100%;
+                pointer-events: none;
+            }
+            .ghost-prev { left: -100%; }
+            .ghost-next { left: 100%; }
 
             .header-top { font-size: 18px; }
             
@@ -468,6 +516,7 @@
         }
         .toast.show { opacity: 1; }
         
+        /* Лоадер для ожидания сервера */
         .sync-indicator {
             position: fixed;
             top: 20px;
@@ -548,11 +597,7 @@
             <div style="margin-top: 20px;">
                 <button class="btn btn-save btn-full" onclick="copyLink()" style="background-color: var(--card-bg); color: #fff; border: 1px solid var(--border-color);">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                    Скопировать ссылку
-                </button>
-                <button class="btn btn-save btn-full" id="btnShareLinkMobile" onclick="shareLinkMobile()" style="display: none; background-color: var(--accent-blue);">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                    Поделиться ссылкой
+                    Скопировать ссылку на сайт
                 </button>
                 <button class="btn btn-save btn-full" onclick="downloadSchedule()">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -629,7 +674,17 @@
                     </div>
                     <div class="form-group" style="flex: 1;">
                         <label>Начинать с недели</label>
-                        <input type="number" id="f_startWeek" min="1" max="18" value="1" required="">
+                        <div class="number-input-wrapper">
+                            <input type="number" id="f_startWeek" min="1" max="18" value="1" required="">
+                            <div class="custom-spinners">
+                                <div class="custom-spinner" onclick="document.getElementById('f_startWeek').stepUp()">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                                </div>
+                                <div class="custom-spinner" onclick="document.getElementById('f_startWeek').stepDown()">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -666,10 +721,24 @@
             8: { start: "21:00", end: "22:30" }
         };
 
+        const defaultLessons = [
+            { "name": "Технологии защиты информации от утечки по техническим каналам", "teacher": "Трушин В. А.", "type": "Лекция", "day": 1, "lessonNum": 4, "periodicity": 2, "startWeek": 3, "room": "7-106", "comment": "Курсовая работа", "id": 1 },
+            { "name": "Философия", "teacher": "Донских О. А.", "type": "Лекция", "day": 1, "lessonNum": 5, "periodicity": 1, "startWeek": 2, "room": "5-5", "comment": "", "id": 2 },
+            { "name": "Иностранный язык", "teacher": "", "type": "Практика", "day": 1, "lessonNum": 6, "periodicity": 1, "startWeek": 2, "room": "1-506", "comment": "", "id": 3 },
+            { "name": "Подготовка научной документации", "teacher": "Иванов А. В.", "type": "Лекция", "day": 2, "lessonNum": 4, "periodicity": 1, "startWeek": 3, "room": "7-702", "comment": "", "id": 4 },
+            { "name": "Подготовка научной документации", "teacher": "Иванов А. В.", "type": "Практика", "day": 2, "lessonNum": 5, "periodicity": 2, "startWeek": 3, "room": "7-702", "comment": "", "id": 5 },
+            { "name": "Технологии защиты информации от несанкционированного доступа", "teacher": "Зырянов С. А.", "type": "Лабораторная", "day": 2, "lessonNum": 5, "periodicity": 1, "startWeek": 3, "room": "Дистант (DiSpace)", "comment": "", "id": 6 },
+            { "name": "Интеллектуальные системы", "teacher": "Швайкова (Яковина И. Н.)", "type": "Лекция", "day": 4, "lessonNum": 1, "periodicity": 2, "startWeek": 3, "room": "7-1", "comment": "", "id": 8 },
+            { "name": "Технологии защиты информации от несанкционированного доступа", "teacher": "Зырянов С. А.", "type": "Лабораторная", "day": 2, "lessonNum": 6, "periodicity": 1, "startWeek": 3, "room": "Дистант (DiSpace)", "comment": "", "id": 1788858673891 },
+            { "name": "Интеллектуальные системы", "teacher": "Швайкова (Яковина И. Н.)", "type": "Лекция", "day": 5, "lessonNum": 6, "periodicity": 2, "startWeek": 2, "room": "7-1", "comment": "", "id": 1788858980574 },
+            { "name": "Интеллектуальные системы", "teacher": "", "type": "Лабораторная", "day": 6, "lessonNum": 1, "periodicity": 3, "startWeek": 3, "room": "2-5865", "comment": "", "id": 1788859126054 }
+        ];
+
         let lessons = [];
         let currentRealWeek = 1;
         let selectedWeek = 1;
         let editingLessonId = null; 
+        let pollTimer = null; // Переменная для таймера умного опроса
 
         function init() {
             const toggleEl = document.getElementById('toggleEmptyDays');
@@ -689,10 +758,36 @@
             loadDataFromAPI();
             initSwipe();
             
-            // Автоматическое обновление данных каждую минуту в фоне
-            setInterval(() => {
-                loadDataFromAPI(true);
-            }, 15000);
+            // ИЗМЕНЕНО: Запуск "Умного опроса"
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    loadDataFromAPI(true); // Запрашиваем данные сразу при разворачивании
+                    startSmartPolling();
+                } else {
+                    clearTimeout(pollTimer); // Останавливаем опрос в фоне
+                }
+            });
+            startSmartPolling();
+
+            // ИЗМЕНЕНО: Синхронизация между вкладками на одном устройстве
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'mySchedule_v4' && e.newValue) {
+                    lessons = JSON.parse(e.newValue);
+                    renderWeekNav();
+                    renderSchedule();
+                }
+            });
+        }
+
+        // ИЗМЕНЕНО: Функция умного опроса каждые 5 секунд
+        function startSmartPolling() {
+            clearTimeout(pollTimer);
+            pollTimer = setTimeout(() => {
+                if (document.visibilityState === 'visible') {
+                    loadDataFromAPI(true);
+                    startSmartPolling();
+                }
+            }, 5000); 
         }
         
         async function loadDataFromAPI(silent = false) {
@@ -717,7 +812,6 @@
                     const newDataString = JSON.stringify(data);
                     const oldDataString = JSON.stringify(lessons);
                     
-                    // Обновляем интерфейс только если данные изменились
                     if (newDataString !== oldDataString) {
                         lessons = data;
                         try { localStorage.setItem('mySchedule_v4', newDataString); } catch(e){}

@@ -247,9 +247,9 @@
             border: 1.5px solid #888;
             color: #ffffff; 
             border-radius: 4px;
-            width: 20px;  
-            height: 20px; 
-            font-size: 12px; 
+            width: 18px;  
+            height: 18px; 
+            font-size: 11px; 
             font-weight: 800;
         }
 
@@ -326,6 +326,7 @@
             border-radius: var(--radius);
         }
 
+        /* Кнопки плавающие */
         .fab {
             position: fixed;
             bottom: 30px;
@@ -383,6 +384,45 @@
             color: var(--text-main);
             font-size: 15px;
         }
+
+        .number-input-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .number-input-wrapper input[type="number"] {
+            -moz-appearance: textfield; 
+            padding-right: 36px; 
+        }
+        .number-input-wrapper input[type="number"]::-webkit-outer-spin-button,
+        .number-input-wrapper input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none; 
+            margin: 0;
+        }
+        .custom-spinners {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 28px;
+            background-color: #e4e6eb; 
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .custom-spinner {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #333;
+            background-color: #e4e6eb;
+            transition: background-color 0.2s;
+        }
+        .custom-spinner:hover { background-color: #cccccc; }
+        .custom-spinner:first-child { border-bottom: 1px solid #c0c0c0; }
         
         .form-row {
             display: flex;
@@ -415,17 +455,26 @@
                 padding: 16px 0 100px 0; 
                 overflow-x: hidden;
                 touch-action: pan-y; 
+                width: 100%;
             }
             #swipeTrack {
-                display: flex;
-                align-items: flex-start;
+                position: relative;
+                width: 100%;
                 will-change: transform;
             }
             .schedule-grid {
-                flex: 0 0 100%;
                 width: 100%;
                 padding: 0 16px; 
             }
+            
+            .ghost-pane {
+                position: absolute;
+                top: 0;
+                width: 100%;
+                pointer-events: none;
+            }
+            .ghost-prev { left: -100%; }
+            .ghost-next { left: 100%; }
 
             .header-top { font-size: 18px; }
             
@@ -521,6 +570,7 @@
         </div>
     </div>
 
+    <!-- Индикатор сохранения -->
     <div id="syncStatus" class="sync-indicator">Синхронизация...</div>
     <div id="toast" class="toast">Ссылка скопирована!</div>
 
@@ -624,7 +674,17 @@
                     </div>
                     <div class="form-group" style="flex: 1;">
                         <label>Начинать с недели</label>
-                        <input type="number" id="f_startWeek" min="1" max="18" value="1" required="">
+                        <div class="number-input-wrapper">
+                            <input type="number" id="f_startWeek" min="1" max="18" value="1" required="">
+                            <div class="custom-spinners">
+                                <div class="custom-spinner" onclick="document.getElementById('f_startWeek').stepUp()">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                                </div>
+                                <div class="custom-spinner" onclick="document.getElementById('f_startWeek').stepDown()">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="form-group">
@@ -644,6 +704,7 @@
     </div>
 
     <script>
+        // ВАЖНО: ВСТАВЬ СЮДА СВОЮ ССЫЛКУ ИЗ GOOGLE APPS SCRIPT
         const API_URL = 'https://script.google.com/macros/s/AKfycbwdxq7maHY9fPqwUj1mf2EvMb0o8v4zzKs9iHSiOdXs708P59dDR22am3bbzcMTOIv1Ww/exec';
         
         const TOTAL_WEEKS = 18;
@@ -662,7 +723,16 @@
         };
         
         const defaultLessons = [
-            { "name": "Технологии защиты информации от утечки по техническим каналам", "teacher": "Трушин В. А.", "type": "Лекция", "day": 1, "lessonNum": 4, "periodicity": 2, "startWeek": 3, "room": "7-106", "comment": "Курсовая работа", "id": 1 }
+            { "name": "Технологии защиты информации от утечки по техническим каналам", "teacher": "Трушин В. А.", "type": "Лекция", "day": 1, "lessonNum": 4, "periodicity": 2, "startWeek": 3, "room": "7-106", "comment": "Курсовая работа", "id": 1 },
+            { "name": "Философия", "teacher": "Донских О. А.", "type": "Лекция", "day": 1, "lessonNum": 5, "periodicity": 1, "startWeek": 2, "room": "5-5", "comment": "", "id": 2 },
+            { "name": "Иностранный язык", "teacher": "", "type": "Практика", "day": 1, "lessonNum": 6, "periodicity": 1, "startWeek": 2, "room": "1-506", "comment": "", "id": 3 },
+            { "name": "Подготовка научной документации", "teacher": "Иванов А. В.", "type": "Лекция", "day": 2, "lessonNum": 4, "periodicity": 1, "startWeek": 3, "room": "7-702", "comment": "", "id": 4 },
+            { "name": "Подготовка научной документации", "teacher": "Иванов А. В.", "type": "Практика", "day": 2, "lessonNum": 5, "periodicity": 2, "startWeek": 3, "room": "7-702", "comment": "", "id": 5 },
+            { "name": "Технологии защиты информации от несанкционированного доступа", "teacher": "Зырянов С. А.", "type": "Лабораторная", "day": 2, "lessonNum": 5, "periodicity": 1, "startWeek": 3, "room": "Дистант (DiSpace)", "comment": "", "id": 6 },
+            { "name": "Интеллектуальные системы", "teacher": "Швайкова (Яковина И. Н.)", "type": "Лекция", "day": 4, "lessonNum": 1, "periodicity": 2, "startWeek": 3, "room": "7-1", "comment": "", "id": 8 },
+            { "name": "Технологии защиты информации от несанкционированного доступа", "teacher": "Зырянов С. А.", "type": "Лабораторная", "day": 2, "lessonNum": 6, "periodicity": 1, "startWeek": 3, "room": "Дистант (DiSpace)", "comment": "", "id": 1788858673891 },
+            { "name": "Интеллектуальные системы", "teacher": "Швайкова (Яковина И. Н.)", "type": "Лекция", "day": 5, "lessonNum": 6, "periodicity": 2, "startWeek": 2, "room": "7-1", "comment": "", "id": 1788858980574 },
+            { "name": "Интеллектуальные системы", "teacher": "", "type": "Лабораторная", "day": 6, "lessonNum": 1, "periodicity": 3, "startWeek": 3, "room": "2-5865", "comment": "", "id": 1788859126054 }
         ];
 
         let lessons = [];
@@ -685,9 +755,11 @@
             });
 
             calculateCurrentWeek();
-            loadDataFromAPI();
+            loadDataFromAPI(); // Загружаем с сервера
             initSwipe(); 
         }
+
+        // --- ЛОГИКА РАБОТЫ С СЕРВЕРОМ ---
         
         async function loadDataFromAPI() {
             try {
@@ -711,7 +783,13 @@
                 const response = await fetch(API_URL);
                 const data = await response.json();
                 if (data && Array.isArray(data)) {
-                    lessons = data;
+                    if (data.length > 0) {
+                        lessons = data;
+                    } else {
+                        // База пустая! Загружаем дефолтные и отправляем на сервер
+                        lessons = [...defaultLessons];
+                        saveDataToAPI({action: 'init', details: 'Первичная загрузка базы'});
+                    }
                     try { localStorage.setItem('mySchedule_v5', JSON.stringify(lessons)); } catch(e){}
                     renderWeekNav();
                     renderSchedule();
@@ -736,8 +814,8 @@
             try {
                 await fetch(API_URL, {
                     method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
+                    // ИСПОЛЬЗУЕМ text/plain ДЛЯ ОБХОДА CORS В GITHUB PAGES
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({
                         action: actionInfo.action,
                         details: actionInfo.details,
@@ -757,6 +835,7 @@
             else el.classList.remove('show');
         }
 
+        // ---------------------------------
 
         function initSwipe() {
             if (window.innerWidth > 768) return; 
@@ -862,7 +941,7 @@
                 document.documentElement.style.setProperty('--swipe-transition', 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)');
 
                 if (diffX > threshold && selectedWeek > 1) {
-                    track.style.transform = `translateX(100%)`;
+                    track.style.transform = `translateX(0%)`;
                     document.documentElement.style.setProperty('--line-offset', `-40px`);
                     setTimeout(() => {
                         selectedWeek--;
@@ -897,7 +976,7 @@
                     ghostPane = null;
                 }
                 track.style.transition = 'none';
-                track.style.transform = 'translateX(0px)';
+                track.style.transform = 'translateX(0)';
                 document.documentElement.style.setProperty('--line-offset', `0px`);
                 
                 if (!reverted) {
@@ -1028,6 +1107,11 @@
             }
             const activeTab = nav.querySelector('.active');
             if(activeTab) activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+
+        function renderSchedule() {
+            const container = document.getElementById('scheduleContainer');
+            container.innerHTML = getScheduleHTML(selectedWeek);
         }
 
         function copyLink() {

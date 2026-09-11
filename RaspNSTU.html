@@ -508,6 +508,17 @@
             .modal { padding: 20px 16px; }
             .form-row { flex-direction: column; gap: 0; }
             .form-group { margin-bottom: 12px; }
+
+            /* ИСПРАВЛЕНО: Делаем стрелочки на Android/iOS поменьше и аккуратнее */
+            .custom-spinners {
+                width: 16px;
+                height: 20px;
+                right: 6px;
+            }
+            .custom-spinner svg {
+                width: 8px;
+                height: 8px;
+            }
         }
 
         .toast {
@@ -810,6 +821,11 @@
                         lessons = JSON.parse(localData);
                         renderWeekNav();
                         renderSchedule();
+                    } else {
+                        // Если нет локальных данных (первый вход), загружаем дефолтное
+                        lessons = JSON.parse(JSON.stringify(defaultLessons));
+                        renderWeekNav();
+                        renderSchedule();
                     }
                 } catch(e) {}
             }
@@ -821,6 +837,14 @@
                 const response = await fetch(fetchUrl, { cache: 'no-store' });
                 const data = await response.json();
                 if (data && Array.isArray(data)) {
+                    // ИСПРАВЛЕНИЕ: Блокировка отката данных (cooldown lock)
+                    // Если мы внесли локальное изменение менее 30 секунд назад, 
+                    // игнорируем ответ сервера, так как он может быть устаревшим
+                    const lastEditTime = parseInt(localStorage.getItem('mySchedule_lastEditTime') || '0', 10);
+                    if (Date.now() - lastEditTime < 30000) {
+                        return; // Ждем пока скрипт Google точно обновится
+                    }
+
                     const newDataString = JSON.stringify(data);
                     const oldDataString = JSON.stringify(lessons);
 
@@ -837,7 +861,11 @@
         }
 
         async function saveDataToAPI(actionInfo) {
-            try { localStorage.setItem('mySchedule_v4', JSON.stringify(lessons)); } catch(e){}
+            try { 
+                localStorage.setItem('mySchedule_v4', JSON.stringify(lessons)); 
+                // Сохраняем метку времени последнего изменения
+                localStorage.setItem('mySchedule_lastEditTime', Date.now().toString());
+            } catch(e){}
             renderSchedule();
 
             if(!API_URL || API_URL === '') return;

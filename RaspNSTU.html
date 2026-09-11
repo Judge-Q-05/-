@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Расписание</title>
+    <!-- Встроенная SVG иконка НГТУ -->
+    <link rel="icon" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpolygon points='0,0 100,0 28,28 0,32' fill='%236e1329'/%3E%3Cpolygon points='100,0 72,28 28,28' fill='%23ff3a5b'/%3E%3Cpolygon points='0,32 28,28 28,72 0,100' fill='%23cc003d'/%3E%3Cpolygon points='0,100 28,72 72,72 60,100' fill='%2300b561'/%3E%3Cpolygon points='100,0 100,100 60,100 72,72 72,28' fill='%23104f32'/%3E%3Cpolygon points='100,0 72,28 72,72' fill='%231ed27a'/%3E%3C/svg%3E">
+    <style>
+        :root {
+            color-scheme: dark; 
+            --bg-color: #121212;
+            --header-bg: #1e1e1e;
+            --card-bg: #252526;
+            --text-main: #ffffff;
+            --text-muted: #a0a0a0;
+            --accent-green: #00e676;
+            --accent-yellow: #ffb300;
+            --accent-blue: #29b6f6;
+            --accent-red: #ff5252;
+            --border-color: #333333;
+            --radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: var(--header-bg);
+            padding: 16px 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            gap: 12px;
+        }
+
+        .header-logo-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-logo-group .icon {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            flex-shrink: 0;
+        }
+
+        .toggle-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-align: right;
+        }
+        
+        .toggle-text-desktop { display: inline; }
+        .toggle-text-mobile { display: none; }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #555;
+            transition: .3s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: var(--accent-green);
+        }
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        .week-nav {
+            display: flex;
+            overflow-x: auto;
+            gap: 48px; 
+            padding: 0 16px 4px; 
+            scrollbar-width: none;
+        }
+        .week-nav::-webkit-scrollbar { display: none; }
+
+        .week-tab {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 15px;
+            white-space: nowrap;
+            cursor: pointer;
+            padding-bottom: 12px;
+            position: relative;
+        }
+
+        .week-tab.active {
+            color: var(--accent-green);
+        }
+
+        .week-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: -26px; 
+            right: -26px; 
+            height: 2px;
+            background-color: var(--accent-green);
+            border-radius: 2px;
+            transform: translateX(var(--line-offset, 0px));
+            transition: var(--swipe-transition, transform 0.2s);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        @media (min-width: 768px) {
+            .schedule-grid {
+                grid-template-columns: repeat(2, 1fr);
+                align-items: stretch;
+            }
+        }
+
+        .day-section { 
+            display: flex;
+            flex-direction: column;
+            height: 100%; 
+        }
+
+        .day-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .day-name { font-size: 22px; font-weight: 600; }
+        
+        .day-header.active-day .day-name, 
+        .day-header.active-day .day-date {
+            color: var(--accent-green);
+        }
+
+        .day-date { font-size: 16px; color: var(--text-muted); font-weight: 500; }
+
+        .lesson {
+            background-color: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 12px;
+            display: grid;
+            gap: 8px;
+            border-left: 4px solid transparent;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .lesson.Лекция { border-left-color: var(--accent-yellow); }
+        .lesson.Практика { border-left-color: var(--accent-green); }
+        .lesson.Лабораторная { border-left-color: var(--accent-red); }
+
+        .lesson.past {
+            opacity: 0.5;
+            filter: grayscale(80%);
+        }
+
+        .lesson-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center; 
+            font-size: 14px;
+            color: var(--text-muted);
+            gap: 12px;
+        }
+
+        .lesson-time {
+            color: var(--accent-yellow);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap; 
+            flex-shrink: 0;      
+        }
+        .lesson.Практика .lesson-time { color: var(--accent-green); }
+        .lesson.Лабораторная .lesson-time { color: var(--accent-red); }
+        .lesson.past .lesson-time { color: var(--text-muted); }
+
+        .lesson-num-box {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid #888;
+            color: #ffffff; 
+            border-radius: 4px;
+            width: 20px;  
+            height: 20px; 
+            font-size: 12px; 
+            font-weight: 800;
+        }
+
+        .lesson-top-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 1;
+            min-width: 0;
+            justify-content: flex-end;
+        }
+
+        .lesson-teacher {
+            text-align: right;
+            line-height: 1.2;
+            word-wrap: break-word; 
+        }
+
+        .lesson-title {
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1.3;
+            margin: 4px 0;
+            padding-right: 40px; 
+        }
+
+        .lesson-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .lesson-type { font-weight: 600; }
+        .lesson.Лекция .lesson-type { color: var(--accent-yellow); }
+        .lesson.Практика .lesson-type { color: var(--accent-green); }
+        .lesson.Лабораторная .lesson-type { color: var(--accent-red); }
+        .lesson.past .lesson-type { color: var(--text-muted); }
+
+        .action-btns { 
+            display: flex; 
+            gap: 12px; 
+            flex-shrink: 0; 
+        }
+        .action-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+        .action-btn:hover {
+            color: var(--text-main);
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        .empty-day-msg {
+            flex-grow: 1; 
+            display: flex;
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100px; 
+            color: #666; 
+            font-size: 20px;
+            font-weight: 600;
+            background-color: transparent;
+            border-radius: var(--radius);
+        }
+
+        .fab {
+            position: fixed;
+            bottom: 30px;
+            width: 56px;
+            height: 56px;
+            background-color: var(--accent-green);
+            color: #000;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 230, 118, 0.4);
+            transition: transform 0.2s;
+            z-index: 100;
+        }
+        .fab:hover { transform: scale(1.05); }
+        
+        .fab-right { right: 30px; }
+        .fab-left { left: 30px; background-color: var(--card-bg); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+
+        /* Модалка */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            padding: 20px;
+        }
+
+        .modal {
+            background: var(--header-bg);
+            padding: 24px;
+            border-radius: var(--radius);
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal h2 { margin-bottom: 20px; font-size: 20px; text-align: center; }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--text-muted); }
+        
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            color: var(--text-main);
+            font-size: 15px;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-cancel { background: transparent; color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn-save { background: var(--accent-green); color: #000; }
+        .btn-full { width: 100%; justify-content: center; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+
+        @media (max-width: 768px) {
+            body {
+                overscroll-behavior-x: none;
+                overflow-x: hidden; 
+            }
+            .container { 
+                padding: 16px 0 100px 0; 
+                overflow-x: hidden;
+                touch-action: pan-y; 
+            }
+            #swipeTrack {
+                display: flex;
+                align-items: flex-start;
+                will-change: transform;
+            }
+            .schedule-grid {
+                flex: 0 0 100%;
+                width: 100%;
+                padding: 0 16px; 
+            }
+
+            .header-top { font-size: 18px; }
+            
+            .toggle-wrapper {
+                flex-direction: row; 
+                flex-wrap: nowrap; 
+                white-space: nowrap; 
+                font-size: 13px; 
+                gap: 8px;
+            }
+            
+            .toggle-text-desktop { display: none; }
+            .toggle-text-mobile { display: inline; }
+
+            .lesson-top { align-items: flex-start; }
+            .lesson-top-right { flex-wrap: wrap; }
+            
+            .modal { padding: 20px 16px; }
+            .form-row { flex-direction: column; gap: 0; }
+            .form-group { margin-bottom: 12px; }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent-green);
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        .toast.show { opacity: 1; }
+        
+        /* Лоадер для ожидания сервера */
+        .sync-indicator {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: var(--accent-green);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .sync-indicator.show { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-top">
+            <div class="header-logo-group">
+                <div class="icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                        <polygon points="0,0 100,0 28,28 0,32" fill="#6e1329"/>
+                        <polygon points="100,0 72,28 28,28" fill="#ff3a5b"/>
+                        <polygon points="0,32 28,28 28,72 0,100" fill="#cc003d"/>
+                        <polygon points="0,100 28,72 72,72 60,100" fill="#00b561"/>
+                        <polygon points="100,0 100,100 60,100 72,72 72,28" fill="#104f32"/>
+                        <polygon points="100,0 72,28 72,72" fill="#1ed27a"/>
+                    </svg>
+                </div>
+                Расписание
+            </div>
+            
+            <div class="toggle-wrapper">
+                <span class="toggle-text-desktop">Скрывать дни без пар</span>
+                <span class="toggle-text-mobile">Только с парами</span>
+                <label class="toggle-switch" title="Скрывать дни без пар">
+                    <input type="checkbox" id="toggleEmptyDays">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+        <div class="week-nav" id="weekNav"></div>
+    </header>
+
+    <div class="container" id="swipeWindow">
+        <div id="swipeTrack">
+            <div class="schedule-grid" id="scheduleContainer"></div>
+        </div>
+    </div>
+
+    <div id="syncStatus" class="sync-indicator">Синхронизация...</div>
+    <div id="toast" class="toast">Ссылка скопирована!</div>
+
+    <div class="fab fab-left" onclick="openShareModal()" title="Поделиться">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+        </svg>
+    </div>
+
+    <div class="fab fab-right" onclick="openModal()" title="Добавить">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+    </div>
+
+    <div class="modal-overlay" id="shareModal" style="display: none;">
+        <div class="modal" style="max-width: 320px;">
+            <h2>Экспорт расписания</h2>
+            <div style="margin-top: 20px;">
+                <button class="btn btn-save btn-full" onclick="copyLink()" style="background-color: var(--card-bg); color: #fff; border: 1px solid var(--border-color);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                    Скопировать ссылку на сайт
+                </button>
+                <button class="btn btn-save btn-full" onclick="downloadSchedule()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Скачать HTML-файл
+                </button>
+                <button class="btn btn-save btn-full" id="btnShareMobile" onclick="shareSchedule()" style="display: none; background-color: var(--accent-blue);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    Поделиться файлом
+                </button>
+                <button class="btn btn-cancel btn-full" onclick="closeShareModal()" style="margin-top: 16px;">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="addModal" style="display: none;">
+        <div class="modal">
+            <h2 id="modalTitle">Редактировать предмет</h2>
+            <form id="addForm">
+                <div class="form-group">
+                    <label>Название предмета *</label>
+                    <input type="text" id="f_name" required="">
+                </div>
+                <div class="form-group">
+                    <label>Преподаватель (необязательно)</label>
+                    <input type="text" id="f_teacher">
+                </div>
+                <div class="form-group">
+                    <label>Тип занятия</label>
+                    <select id="f_type">
+                        <option value="Лекция">Лекция</option>
+                        <option value="Практика">Практика</option>
+                        <option value="Лабораторная">Лабораторная</option>
+                    </select>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label>День *</label>
+                        <select id="f_day">
+                            <option value="1">Понедельник</option>
+                            <option value="2">Вторник</option>
+                            <option value="3">Среда</option>
+                            <option value="4">Четверг</option>
+                            <option value="5">Пятница</option>
+                            <option value="6">Суббота</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" style="flex: 1.5;">
+                        <label>Номер пары *</label>
+                        <select id="f_lessonNum">
+                            <option value="1">1 пара (08:30–10:00)</option>
+                            <option value="2">2 пара (10:15–11:45)</option>
+                            <option value="3">3 пара (12:00–13:30)</option>
+                            <option value="4">4 пара (14:00–15:30)</option>
+                            <option value="5">5 пара (15:45–17:15)</option>
+                            <option value="6">6 пара (17:30–19:00)</option>
+                            <option value="7">7 пара (19:15–20:45)</option>
+                            <option value="8">8 пара (21:00–22:30)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Периодичность (шаг недель)</label>
+                        <select id="f_periodicity">
+                            <option value="1">Каждую неделю</option>
+                            <option value="2">Раз в 2 недели</option>
+                            <option value="3">Раз в 3 недели</option>
+                            <option value="4">Раз в 4 недели</option>
+                            <option value="0">Только один раз</option> 
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Начинать с недели</label>
+                        <input type="number" id="f_startWeek" min="1" max="18" value="1" required="">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Аудитория и корпус (необязательно)</label>
+                    <input type="text" id="f_room">
+                </div>
+                <div class="form-group">
+                    <label>Комментарий (необязательно)</label>
+                    <textarea id="f_comment" rows="2"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-cancel" onclick="closeModal()">Отмена</button>
+                    <button type="submit" class="btn btn-save" id="saveBtn">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwdxq7maHY9fPqwUj1mf2EvMb0o8v4zzKs9iHSiOdXs708P59dDR22am3bbzcMTOIv1Ww/exec';
+        
+        const TOTAL_WEEKS = 18;
+        const SEMESTER_START = new Date(2026, 7, 31); 
+        const DAYS_NAMES = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
+        
+        const LESSON_TIMES = {
+            1: { start: "08:30", end: "10:00" },
+            2: { start: "10:15", end: "11:45" },
+            3: { start: "12:00", end: "13:30" },
+            4: { start: "14:00", end: "15:30" },
+            5: { start: "15:45", end: "17:15" },
+            6: { start: "17:30", end: "19:00" },
+            7: { start: "19:15", end: "20:45" },
+            8: { start: "21:00", end: "22:30" }
+        };
+        
+        const defaultLessons = [
+            { "name": "Технологии защиты информации от утечки по техническим каналам", "teacher": "Трушин В. А.", "type": "Лекция", "day": 1, "lessonNum": 4, "periodicity": 2, "startWeek": 3, "room": "7-106", "comment": "Курсовая работа", "id": 1 }
+        ];
+
+        let lessons = [];
+        let currentRealWeek = 1;
+        let selectedWeek = 1;
+        let editingLessonId = null; 
+
+        function init() {
+            const toggleEl = document.getElementById('toggleEmptyDays');
+            try {
+                const savedToggleState = localStorage.getItem('hideEmptyDaysToggle');
+                toggleEl.checked = savedToggleState !== null ? (savedToggleState === 'true') : true;
+            } catch (err) {
+                toggleEl.checked = true;
+            }
+
+            toggleEl.addEventListener('change', function(e) {
+                try { localStorage.setItem('hideEmptyDaysToggle', e.target.checked); } catch(err) {}
+                renderSchedule();
+            });
+
+            calculateCurrentWeek();
+            loadDataFromAPI();
+            initSwipe(); 
+        }
+        
+        async function loadDataFromAPI() {
+            try {
+                const localData = localStorage.getItem('mySchedule_v5');
+                if (localData) {
+                    lessons = JSON.parse(localData);
+                    renderWeekNav();
+                    renderSchedule();
+                }
+            } catch(e) {}
+
+            if(!API_URL || API_URL === 'ТВОЯ_ССЫЛКА_ИЗ_GOOGLE_APPS_SCRIPT') {
+                if(lessons.length === 0) lessons = [...defaultLessons];
+                renderWeekNav();
+                renderSchedule();
+                return;
+            }
+
+            showSyncStatus(true);
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                if (data && Array.isArray(data)) {
+                    lessons = data;
+                    try { localStorage.setItem('mySchedule_v5', JSON.stringify(lessons)); } catch(e){}
+                    renderWeekNav();
+                    renderSchedule();
+                }
+            } catch (error) {
+                console.error("Ошибка загрузки с сервера:", error);
+                if(lessons.length === 0) lessons = [...defaultLessons];
+                renderWeekNav();
+                renderSchedule();
+            } finally {
+                showSyncStatus(false);
+            }
+        }
+
+        async function saveDataToAPI(actionInfo) {
+            try { localStorage.setItem('mySchedule_v5', JSON.stringify(lessons)); } catch(e){}
+            renderSchedule();
+
+            if(!API_URL || API_URL === 'ТВОЯ_ССЫЛКА_ИЗ_GOOGLE_APPS_SCRIPT') return;
+
+            showSyncStatus(true);
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: actionInfo.action,
+                        details: actionInfo.details,
+                        lessons: lessons
+                    })
+                });
+            } catch (error) {
+                console.error("Ошибка сохранения на сервер:", error);
+            } finally {
+                showSyncStatus(false);
+            }
+        }
+
+        function showSyncStatus(show) {
+            const el = document.getElementById('syncStatus');
+            if(show) el.classList.add('show');
+            else el.classList.remove('show');
+        }
+
+
+        function initSwipe() {
+            if (window.innerWidth > 768) return; 
+
+            const swipeWindow = document.getElementById('swipeWindow');
+            const track = document.getElementById('swipeTrack');
+            const container = document.getElementById('scheduleContainer');
+            
+            let startX = 0, startY = 0, currentX = 0;
+            let isDragging = false;
+            let isAnimating = false; 
+            let swipeDirectionLocked = null;
+            let ghostPane = null; 
+            let targetWeek = selectedWeek;
+
+            swipeWindow.addEventListener('touchstart', function(e) {
+                if (isAnimating) return;
+                
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                currentX = startX;
+                isDragging = true;
+                swipeDirectionLocked = null;
+                
+                track.style.transition = 'none';
+                document.documentElement.style.setProperty('--swipe-transition', 'none');
+
+                if (ghostPane) {
+                    ghostPane.remove();
+                    ghostPane = null;
+                }
+            }, {passive: true});
+
+            swipeWindow.addEventListener('touchmove', function(e) {
+                if (!isDragging || isAnimating) return;
+
+                const x = e.touches[0].clientX;
+                const y = e.touches[0].clientY;
+                const diffX = x - startX;
+                const diffY = y - startY;
+
+                if (!swipeDirectionLocked) {
+                    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+                        swipeDirectionLocked = 'horizontal';
+                    } else if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 10) {
+                        swipeDirectionLocked = 'vertical';
+                    }
+                }
+
+                if (swipeDirectionLocked === 'horizontal') {
+                    if (e.cancelable) e.preventDefault(); 
+
+                    currentX = x;
+                    
+                    let newTargetWeek = selectedWeek;
+                    if (diffX < 0 && selectedWeek < TOTAL_WEEKS) newTargetWeek = selectedWeek + 1;
+                    else if (diffX > 0 && selectedWeek > 1) newTargetWeek = selectedWeek - 1;
+
+                    if (newTargetWeek !== targetWeek) {
+                        if (ghostPane) ghostPane.remove();
+                        targetWeek = newTargetWeek;
+
+                        if (targetWeek !== selectedWeek) {
+                            ghostPane = document.createElement('div');
+                            ghostPane.className = 'schedule-grid';
+                            ghostPane.innerHTML = getScheduleHTML(targetWeek);
+
+                            if (targetWeek > selectedWeek) {
+                                track.appendChild(ghostPane); 
+                                track.style.transform = `translateX(0px)`;
+                            } else {
+                                track.insertBefore(ghostPane, container); 
+                                track.style.transform = `translateX(-100%)`;
+                            }
+                        }
+                    }
+
+                    let dragX = diffX;
+                    if (targetWeek < selectedWeek) {
+                        track.style.transform = `translateX(calc(-100% + ${dragX}px))`;
+                    } else if (targetWeek > selectedWeek) {
+                        track.style.transform = `translateX(${dragX}px)`;
+                    } else {
+                        track.style.transform = `translateX(${dragX * 0.25}px)`;
+                    }
+
+                    document.documentElement.style.setProperty('--line-offset', `${-diffX * 0.15}px`);
+                }
+            }, {passive: false});
+
+            swipeWindow.addEventListener('touchend', function(e) {
+                if (!isDragging || swipeDirectionLocked !== 'horizontal') {
+                    isDragging = false;
+                    return;
+                }
+                isDragging = false;
+                isAnimating = true;
+
+                const diffX = currentX - startX;
+                const threshold = window.innerWidth * 0.2; 
+
+                track.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
+                document.documentElement.style.setProperty('--swipe-transition', 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)');
+
+                if (diffX > threshold && selectedWeek > 1) {
+                    track.style.transform = `translateX(100%)`;
+                    document.documentElement.style.setProperty('--line-offset', `-40px`);
+                    setTimeout(() => {
+                        selectedWeek--;
+                        cleanupSwipe(false);
+                    }, 300);
+                } else if (diffX < -threshold && selectedWeek < TOTAL_WEEKS) {
+                    track.style.transform = `translateX(-100%)`;
+                    document.documentElement.style.setProperty('--line-offset', `40px`);
+                    setTimeout(() => {
+                        selectedWeek++;
+                        cleanupSwipe(false);
+                    }, 300);
+                } else {
+                    if (targetWeek < selectedWeek) {
+                         track.style.transform = `translateX(-100%)`;
+                    } else if (targetWeek > selectedWeek) {
+                         track.style.transform = `translateX(0%)`;
+                    } else {
+                         track.style.transform = `translateX(0px)`;
+                    }
+                    document.documentElement.style.setProperty('--line-offset', `0px`);
+                    setTimeout(() => {
+                        cleanupSwipe(true);
+                    }, 300);
+                }
+            });
+
+            function cleanupSwipe(reverted) {
+                isAnimating = false;
+                if (ghostPane) {
+                    ghostPane.remove();
+                    ghostPane = null;
+                }
+                track.style.transition = 'none';
+                track.style.transform = 'translateX(0px)';
+                document.documentElement.style.setProperty('--line-offset', `0px`);
+                
+                if (!reverted) {
+                    renderWeekNav();
+                    renderSchedule();
+                }
+                targetWeek = selectedWeek;
+            }
+        }
+
+        function getScheduleHTML(targetWeekNum) {
+            let html = '';
+            const now = new Date();
+            const todayIndex = now.getDay(); 
+            const hideEmptyDays = document.getElementById('toggleEmptyDays').checked;
+            
+            for (let day = 1; day <= 6; day++) {
+                const dayDate = new Date(SEMESTER_START.getTime() + (targetWeekNum - 1) * 7 * 86400000 + (day - 1) * 86400000);
+                const dateString = dayDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+                
+                let dayLessons = lessons.filter(l => l.day === day);
+                
+                dayLessons = dayLessons.filter(l => {
+                    if (l.periodicity === 0) {
+                        return targetWeekNum === l.startWeek;
+                    }
+                    if (targetWeekNum < l.startWeek) return false;
+                    return (targetWeekNum - l.startWeek) % l.periodicity === 0;
+                });
+
+                if (dayLessons.length === 0 && hideEmptyDays) {
+                    continue;
+                }
+
+                dayLessons.sort((a, b) => a.lessonNum - b.lessonNum);
+                const isToday = (targetWeekNum === currentRealWeek && day === todayIndex);
+
+                let dayHTML = `
+                    <div class="day-section">
+                        <div class="day-header ${isToday ? 'active-day' : ''}">
+                            <div class="day-name">${DAYS_NAMES[day]}</div>
+                            <div class="day-date">${dateString}</div>
+                        </div>
+                `;
+
+                if (dayLessons.length === 0) {
+                    dayHTML += `<div class="empty-day-msg">Пар нет</div>`;
+                } else {
+                    dayLessons.forEach(l => {
+                        const times = LESSON_TIMES[l.lessonNum];
+                        let isPast = false;
+                        
+                        if (targetWeekNum < currentRealWeek) {
+                            isPast = true;
+                        } else if (targetWeekNum === currentRealWeek) {
+                            if (day < todayIndex || todayIndex === 0) {
+                                isPast = true;
+                            } else if (day === todayIndex) {
+                                const currentTime = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+                                if (currentTime > times.end) isPast = true;
+                            }
+                        }
+
+                        dayHTML += `
+                            <div class="lesson ${l.type} ${isPast ? 'past' : ''}">
+                                <div class="lesson-top">
+                                    <div class="lesson-time">
+                                        <span class="lesson-num-box">${l.lessonNum}</span> ${times.start}–${times.end}
+                                    </div>
+                                    <div class="lesson-top-right">
+                                        <div class="lesson-teacher">${l.teacher}</div>
+                                        <div class="action-btns">
+                                            <button onclick="editLesson(${l.id})" class="action-btn" title="Редактировать">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                            </button>
+                                            <button onclick="deleteLesson(${l.id})" class="action-btn" title="Удалить">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="lesson-title">${l.name}</div>
+                                ${l.comment ? `<div style="font-size: 13px; color: var(--text-muted); margin-bottom: 6px;"><span style="text-decoration: underline;">Комментарий:</span> ${l.comment}</div>` : ''}
+                                <div class="lesson-bottom">
+                                    <div class="lesson-room">
+                                        ${l.room ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>${l.room}` : ''}
+                                    </div>
+                                    <div class="lesson-type">${l.type}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                dayHTML += `</div>`;
+                html += dayHTML;
+            }
+            if(html === '') {
+                html = '<div style="color: var(--text-muted); text-align: center; margin-top: 40px;">На эту неделю пар нет 🎉</div>';
+            }
+            return html;
+        }
+
+        function calculateCurrentWeek() {
+            const now = new Date();
+            const diffTime = Math.abs(now - SEMESTER_START);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            currentRealWeek = Math.floor(diffDays / 7) + 1;
+            
+            if (currentRealWeek < 1) currentRealWeek = 1;
+            if (currentRealWeek > TOTAL_WEEKS) currentRealWeek = TOTAL_WEEKS;
+            
+            selectedWeek = currentRealWeek;
+        }
+
+        function renderWeekNav() {
+            const nav = document.getElementById('weekNav');
+            nav.innerHTML = '';
+            for (let i = 1; i <= TOTAL_WEEKS; i++) {
+                const tab = document.createElement('div');
+                tab.className = `week-tab ${i === selectedWeek ? 'active' : ''}`;
+                tab.innerText = `Неделя ${i}`;
+                tab.onclick = () => {
+                    selectedWeek = i;
+                    renderWeekNav();
+                    renderSchedule();
+                };
+                nav.appendChild(tab);
+            }
+            const activeTab = nav.querySelector('.active');
+            if(activeTab) activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+
+        function copyLink() {
+            const url = window.location.href;
+            if(navigator.clipboard) {
+                navigator.clipboard.writeText(url).then(() => {
+                    closeShareModal();
+                    showToast();
+                }).catch(err => {
+                    alert('Не удалось скопировать ссылку');
+                });
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = url;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    closeShareModal();
+                    showToast();
+                } catch (err) {
+                    alert('Не удалось скопировать ссылку');
+                }
+                document.body.removeChild(textArea);
+            }
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        function openShareModal() {
+            document.getElementById('shareModal').style.display = 'flex';
+            if (navigator.share && navigator.canShare) {
+                document.getElementById('btnShareMobile').style.display = 'flex';
+            }
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').style.display = 'none';
+        }
+
+        function generateExportHTML() {
+            const clone = document.documentElement.cloneNode(true);
+            const scheduleContainer = clone.querySelector('#scheduleContainer');
+            if (scheduleContainer) scheduleContainer.innerHTML = '';
+            const weekNav = clone.querySelector('#weekNav');
+            if (weekNav) weekNav.innerHTML = '';
+            
+            const modals = clone.querySelectorAll('.modal-overlay');
+            modals.forEach(m => m.style.display = 'none');
+            
+            let htmlStr = "<!DOCTYPE html>\n<html lang=\"ru\">\n" + clone.innerHTML + "\n</html>";
+            const lessonsJson = JSON.stringify(lessons, null, 4);
+            htmlStr = htmlStr.replace(/(const defaultLessons = )\[[\s\S]*?\];/, `$1${lessonsJson};`);
+            
+            return htmlStr;
+        }
+
+        function downloadSchedule() {
+            const html = generateExportHTML();
+            const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'RaspNSTU.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            closeShareModal();
+        }
+
+        async function shareSchedule() {
+            try {
+                const html = generateExportHTML();
+                const file = new File([html], 'RaspNSTU.html', { type: 'text/html' });
+                
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: 'Учебное расписание',
+                        files: [file]
+                    });
+                    closeShareModal();
+                } else {
+                    alert('Ваш браузер не поддерживает отправку файлов. Попробуйте использовать кнопку "Скачать".');
+                }
+            } catch (err) {
+                console.error('Ошибка при шеринге:', err);
+            }
+        }
+
+        function openModal() { 
+            editingLessonId = null;
+            document.getElementById('addForm').reset();
+            document.getElementById('modalTitle').innerText = 'Добавить предмет';
+            document.getElementById('saveBtn').innerText = 'Добавить';
+            document.getElementById('addModal').style.display = 'flex'; 
+        }
+
+        function closeModal() { 
+            document.getElementById('addModal').style.display = 'none'; 
+            document.getElementById('addForm').reset(); 
+            editingLessonId = null;
+        }
+
+        function deleteLesson(id) {
+            if (confirm('Ты уверен, что хочешь удалить эту пару из расписания?')) {
+                const deletedLesson = lessons.find(l => l.id === id);
+                lessons = lessons.filter(l => l.id !== id);
+                saveDataToAPI({action: 'delete', details: deletedLesson});
+            }
+        }
+
+        function editLesson(id) {
+            const lesson = lessons.find(l => l.id === id);
+            if (!lesson) return;
+
+            editingLessonId = id;
+            
+            document.getElementById('f_name').value = lesson.name;
+            document.getElementById('f_teacher').value = lesson.teacher;
+            document.getElementById('f_type').value = lesson.type;
+            document.getElementById('f_day').value = lesson.day;
+            document.getElementById('f_lessonNum').value = lesson.lessonNum;
+            document.getElementById('f_periodicity').value = lesson.periodicity;
+            document.getElementById('f_startWeek').value = lesson.startWeek;
+            document.getElementById('f_room').value = lesson.room;
+            document.getElementById('f_comment').value = lesson.comment;
+
+            document.getElementById('modalTitle').innerText = 'Редактировать предмет';
+            document.getElementById('saveBtn').innerText = 'Сохранить';
+            document.getElementById('addModal').style.display = 'flex';
+        }
+
+        document.getElementById('addForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const lessonData = {
+                name: document.getElementById('f_name').value,
+                teacher: document.getElementById('f_teacher').value,
+                type: document.getElementById('f_type').value,
+                day: parseInt(document.getElementById('f_day').value),
+                lessonNum: parseInt(document.getElementById('f_lessonNum').value),
+                periodicity: parseInt(document.getElementById('f_periodicity').value),
+                startWeek: parseInt(document.getElementById('f_startWeek').value),
+                room: document.getElementById('f_room').value,
+                comment: document.getElementById('f_comment').value
+            };
+
+            let actionType = 'add';
+
+            if (editingLessonId) {
+                actionType = 'edit';
+                const index = lessons.findIndex(l => l.id === editingLessonId);
+                if (index !== -1) {
+                    lessons[index] = { ...lessonData, id: editingLessonId };
+                }
+            } else {
+                lessonData.id = Date.now();
+                lessons.push(lessonData);
+            }
+            
+            saveDataToAPI({action: actionType, details: lessonData});
+            closeModal();
+        });
+
+        window.onload = init;
+    </script>
+</body>
+</html>

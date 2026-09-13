@@ -326,15 +326,14 @@
             border-radius: var(--radius);
         }
 
-        /* --- НОВЫЙ КЛАСС: Для пустой недели --- */
         .empty-week-msg {
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 40vh; /* Половина высоты экрана для выравнивания по центру */
+            min-height: 40vh;
             color: var(--text-muted);
             font-size: 24px;
-            font-weight: 700; /* Более жирный шрифт */
+            font-weight: 700;
             text-align: center;
             padding: 20px;
         }
@@ -394,10 +393,9 @@
             background: var(--bg-color);
             color: var(--text-main);
             font-size: 15px;
-            transition: border-color 0.3s, box-shadow 0.3s; /* Плавное изменение границы */
+            transition: border-color 0.3s, box-shadow 0.3s; 
         }
 
-        /* --- НОВЫЙ КЛАСС: Ошибка валидации --- */
         .error-border {
             border-color: var(--accent-red) !important;
             box-shadow: 0 0 0 2px rgba(255, 82, 82, 0.3) !important;
@@ -656,7 +654,6 @@
     <div class="modal-overlay" id="addModal" style="display: none;">
         <div class="modal">
             <h2 id="modalTitle">Редактировать предмет</h2>
-            <!-- ИСПРАВЛЕНИЕ: Добавлен novalidate, чтобы отключить стандартные всплывающие окна браузера -->
             <form id="addForm" novalidate>
                 <div class="form-group">
                     <label>Название предмета *</label>
@@ -807,7 +804,6 @@
                 renderSchedule();
             });
 
-            // ИСПРАВЛЕНИЕ 2: Слушатели для полей формы. Как только вводим символ — убираем красную рамку
             document.querySelectorAll('#addForm input, #addForm select, #addForm textarea').forEach(el => {
                 el.addEventListener('input', function() {
                     this.classList.remove('error-border');
@@ -848,7 +844,6 @@
         }
         
         async function loadDataFromAPI(silent = false) {
-            // ИСПРАВЛЕНИЕ 1: СНАЧАЛА читаем из памяти устройства (чтобы не было пустого экрана при обновлении)
             if (!silent) {
                 try {
                     const localData = localStorage.getItem('mySchedule_v4');
@@ -866,7 +861,6 @@
 
             if(!API_URL || API_URL === '') return;
 
-            // А ТЕПЕРЬ проверяем блокировку перед обращением к серверу!
             if (isSyncPaused) return; 
             try {
                 const lastEditTime = parseInt(localStorage.getItem('mySchedule_lastEditTime') || '0', 10);
@@ -1068,7 +1062,10 @@
         function getScheduleHTML(targetWeekNum) {
             let html = '';
             const now = new Date();
-            const todayIndex = now.getDay(); 
+            
+            let todayIndex = now.getDay();
+            todayIndex = todayIndex === 0 ? 7 : todayIndex;
+
             const hideEmptyDays = document.getElementById('toggleEmptyDays').checked;
             
             for (let day = 1; day <= 6; day++) {
@@ -1110,7 +1107,7 @@
                         if (targetWeekNum < currentRealWeek) {
                             isPast = true;
                         } else if (targetWeekNum === currentRealWeek) {
-                            if (day < todayIndex || todayIndex === 0) {
+                            if (day < todayIndex) {
                                 isPast = true;
                             } else if (day === todayIndex) {
                                 const currentTime = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
@@ -1152,7 +1149,6 @@
                 html += dayHTML;
             }
             if(html === '') {
-                // ИСПРАВЛЕНИЕ 3: Выводим надпись по центру с помощью нового класса
                 html = '<div class="empty-week-msg">На эту неделю пар нет</div>';
             }
             return html;
@@ -1160,8 +1156,14 @@
 
         function calculateCurrentWeek() {
             const now = new Date();
-            const diffTime = Math.abs(now - SEMESTER_START);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            const start = new Date(SEMESTER_START);
+            
+            now.setHours(0, 0, 0, 0);
+            start.setHours(0, 0, 0, 0);
+            
+            const diffTime = now.getTime() - start.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
+            
             currentRealWeek = Math.floor(diffDays / 7) + 1;
             
             if (currentRealWeek < 1) currentRealWeek = 1;
@@ -1303,7 +1305,6 @@
         function openModal() { 
             editingLessonId = null;
             document.getElementById('addForm').reset();
-            // Сбрасываем возможные рамки ошибок
             document.querySelectorAll('.error-border').forEach(el => el.classList.remove('error-border'));
             document.getElementById('modalTitle').innerText = 'Добавить предмет';
             document.getElementById('saveBtn').innerText = 'Добавить';
@@ -1350,26 +1351,22 @@
         document.getElementById('addForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            // ИСПРАВЛЕНИЕ 2: Своя логика проверки полей
             const nameInput = document.getElementById('f_name');
             const startWeekInput = document.getElementById('f_startWeek');
             let hasError = false;
 
-            // Проверяем название предмета
             if (!nameInput.value.trim()) {
                 nameInput.classList.add('error-border');
                 if (!hasError) nameInput.focus();
                 hasError = true;
             }
 
-            // Проверяем неделю (не должна быть пустой и должна быть больше 0)
             if (!startWeekInput.value.trim() || parseInt(startWeekInput.value) < 1) {
                 startWeekInput.classList.add('error-border');
                 if (!hasError) startWeekInput.focus();
                 hasError = true;
             }
 
-            // Если есть ошибка - прекращаем сохранение и ждем исправления
             if (hasError) return;
 
             const lessonData = {
